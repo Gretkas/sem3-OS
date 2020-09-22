@@ -22,4 +22,6 @@ jobs:
 
       # Runs a single command using the runners shell
       - name: Run a one-line script
-        run: ./publish_gitbook.sh
+        run: |
+          :chmod +x ./scripts/moveFiles.sh
+          :./publish_gitbook.sh
