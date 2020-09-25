@@ -1,6 +1,6 @@
 {
 
-    "plugins": [ "hints", "github" ],
+    "plugins": [ "hints", "github", "api", "hide-published-with" ],
     "pluginsConfig": {
         "github": {
             "url": "https://github.com/gretkas/sem3-OS"
