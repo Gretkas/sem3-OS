@@ -1,0 +1,9 @@
+{
+
+    "plugins": [ "hints", "github" ],
+    "pluginsConfig": {
+        "github": {
+            "url": "https://github.com/gretkas/sem3-OS"
+        }
+    }
+}
