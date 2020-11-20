@@ -1,0 +1,128 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\usepackage{xcolor}
+\usepackage{listings}
+
+\definecolor{mGreen}{rgb}{0,0.6,0}
+\definecolor{mGray}{rgb}{0.5,0.5,0.5}
+\definecolor{mPurple}{rgb}{0.58,0,0.82}
+\definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{backgroundColour},   
+    commentstyle=\color{mGreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{mGray},
+    stringstyle=\color{mPurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=C
+}
+
+
+\title{Operating systems 04}
+\author{Sigmund Granaas}
+
+\begin{document}
+\maketitle
+
+
+\section{File systems}
+
+\subsection{Name two factors that are important in the design of a file system.}
+
+Speed and reliability. For a file system to be usable, it needs to leverage the slow hardware that is our storage media. However, storing important files also needs to be reliable. Important documents are stored digitally, and the user must be ensured that faults caused by the file system needs to be as minimal as possible. As with  any computer system, there are always trade-offs. Using programming languages as an example, you have to choose between speed and security. Now most modern file systems are both reliable and fast, but there are still improvements to be made in each category.
+
+\subsection{Name some examples of file metadata}
+Metadata are useful in almost all types of files. For me, metadata from image files are especially useful. All information about the image, like shutter speed, aperture and camera model used are available, which makes it extremely simple to sort and categorize files. Music files can contain information about the album, artist and bit-rate. Metadata simply means data about data. The function of metadata is to provide information about a particular file, providing useful information about the file without having to read the file. Metadata allows the file system to efficiently understand what type of data this file contains.
+
+
+
+\section{Files and directories}
+
+
+
+\subsection{Consider a fast file system(FFS) like Linux's ext4}
+
+\subsubsection{Explain the difference between a hard link and a soft link in this file system. What is the length of the content of a soft link file?}
+
+The difference between hard and soft links(symlinks) is that a soft link points to another hard link. This allows you to reference files or folder from different logical drives or partitions. This can be useful if you want something to appear to be somewhere it is not. Say you have limited amount of free space on a drive, but want to make a huge file work like it is located in the drive, this can be done with a symlink. The downside is that if the hard link where the symlink is pointing, the symlink no longer functions. Hard links points directly to an inode, while a soft link essentially points to a hard link. A hard link copies the inode number of a specific file. A hardlink might look like a copy of another file, but in reality it is only reading the file the inode points to.
+
+I am unsure exactly what you mean by the length of a symlink, is it the content of the file or the estimated size? A soft link is a file referencing another link to a file. It only stores metadata, name and the target for the file. This means that a symlink does not have a fixed length. Usually a symlink file is so small that it is negligible(a few bytes).
+
+ 
+ \subsubsection{What is the minimum number of references(hard links) for any given folder?}
+There seems to be two links for every given folder. It was my understanding that you cannot create a hard link to directories, but I suppose these are created by default when creating the directory.
+ 
+ \subsubsection{Consider a folder /tmp/myfolder containing 5 subfolders. How many references (hard links) does it have? Try it yourself on a linux system and include the output.}
+ Because there are 2 link to any given folder, giving it 5 subfolders creates 7 links in total to the parent directory.
+ 
+ Output: drwxrwxr-x 7 sigmund sigmund 4096 Nov 20 13:51 test
+
+ 
+ 
+ \subsubsection{Explain how spatial locality is achieved in a FFS}
+Spatial locality is most important when considering the latency of retrieving data from a spinning disk. The performance of a file system relies on the speed of the storage media. In the case for spinning disks, the data stored needs to be optimised for disks. The Idea is to store similar data together to prevent the disk from having to unnecessarily spin to find needed data. It tries to place files as close to its inode as possible. As well as space out the placement of directories as to evenly distribute the directories where there is the most free room, and lowest amount of directories. The idea is to put subdirectories and files in or close to the same group, because they are very likely to be related to each other. 
+
+
+\subsection{NTFS - flexible tree with extents}
+
+\subsubsection{Explain the difference and use of resident versus non-resident attributes in NTFS}
+NTFS stores all data and directories as sets of attributes. Data located inside the MFT file record are called resident attributes. If attributes are too large for a record they will be stored in another cluster(s) in the same volume, and therefore called non-resident attributes. 
+
+
+\subsubsection{Discuss the benefits of NTFS-style extents in relation to blocks used by FAT or FFS}
+
+An extent is a set of blocks that are reserved for storing some type of data. The extent is mostly used for keeping a lot of metadata for large files. Bigger files would be fragmented into blocks of data, where each of the block would need to contains the appropriate metadata. This saves a little bit of space, but the main benefit is the performance improvements from restricting fragmentation. If a file system is heavily populated with files, the blocks might be stored in different places apart from each other, this fragments the file. In cases where there simply is no more room for complete files, they need to be fragmented. However if there is room, extends could be used, which removes the need to indirect blocks, which are blocks that references other block. Extends has a predetermined size, and does not care how many blocks it has inside, as long as they fit inside the extent. This can improve performance by reducing search time for piecing together data.
+
+\section{Security}
+\subsection{Authentication}
+\subsubsection{Why is it important to hash passwords with a unique salt, even if the salt can be publicly known?}
+
+The salt adds a layer of randomness to the generation of a hash. Two identical hashed passwords, would have the same hashes if it did not use unique hashes. You can then compare the two hashes, and find the password of one user by solving the others password. If passwords are not salted, you can use a dictionary to hash common words and compare them to the hashed passwords to find passwords. This can be done extremely quickly with modern hardware in a brute-force attack. The salt can be publicly known, because on it's own, it does not identify any part of the generated hash, the combination of the salt and the password is needed to create the unique hash.  
+
+
+\subsubsection{Explain how a user can use a program to update the password database, while at the same time does not have read or write permissions to the password database file itself. What are the caveats of this?}
+
+The permissions to the database files are set to the database server in it's entirety. Only the database should have permission to access it's generated data. This is done through design, to control how the data is handled, updated and processed. The database will set the permission of the files to only be accessible by the database service. This makes the files itself secure from mismanagement or threats with user-level permissions. Problems with this if the software you are using has an issue, which makes it impossible to retrieve the password. You cannot fetch them yourself, because of permissions, and the program might be unusable. This is similar to how we program java classes. We don't export the individual values of the class, we explicitly tell the class how to handle the data, with getter, setter or other methods that has some kind of logic behind them. This is to enforce some kind of business rules to our data. We explicitly make rules for how this data should be handled. In this case, the passwords needs to be handled by the database service, which can decide if the user should be allowed to see the stored password.
+
+
+\subsection{Software vulnerabilities}
+\subsubsection{Describe the program with the well-known gets() library call. Name another library call that is safe to use that accomplishes the same thing.}
+
+I am not sure I understand which program you are referring to. However the first internet worm(Morris) exploited the gets() function to spread across computers.
+
+The problem with the get() library call, is that there is no restriction for how much data is will read. The gets() function continues reading until it hits a new line or end of file. This can be the entry point of several vulnerabilities, and can create a stackoverflow. Due to the C language not being memory-safe, this can corrupt your memory.
+
+The safe alternatives is fgets(), and get\_s(). Which makes you deal with how many characters are expected to be read. 
+
+
+\subsubsection{Explain why a microkernel is statistically more secure than a monolithic kernel}
+In a monolithic kernel everything runs inside the kernel space. This means that if one of the parts of the kernel fails, everything fails. Especially problematic are device drivers, which can cause a lot of issues. If a device driver fails, or contains vulnerable code, the entire system could be compromised.
+
+Micro-kernels runs everything in separate services, which communicated between themselves. If one of the services fail, it does not need to compromise the rest of the system. However,they require a lot of context-switching, which can slow down the system significantly.
+
+\end{document}
