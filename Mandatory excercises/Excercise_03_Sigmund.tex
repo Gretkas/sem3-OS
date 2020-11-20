@@ -1,0 +1,188 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=3cm,bottom=2cm,left=3cm,right=3cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\usepackage{xcolor}
+\usepackage{listings}
+
+\definecolor{mGreen}{rgb}{0,0.6,0}
+\definecolor{mGray}{rgb}{0.5,0.5,0.5}
+\definecolor{mPurple}{rgb}{0.58,0,0.82}
+\definecolor{backgroundColour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{CStyle}{
+    backgroundcolor=\color{backgroundColour},   
+    commentstyle=\color{mGreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{mGray},
+    stringstyle=\color{mPurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=C
+}
+
+
+\title{Operating systems 03}
+\author{Sigmund Granaas}
+
+\begin{document}
+\maketitle
+
+
+\section{Synchronisation}
+
+\subsection{The principle of process isolation in an operating system means that processes must not have access
+to the address spaces of other processes or the kernel. However, processes also need to communicate.}
+\subsubsection{Give an example of such communication.}
+
+Communicating between processes can be done by having the processes share a memory region. This allows both processor to read and write to the same area of memory. For the processes to communicate with each other, they both need write permissions to the same area of memory. There are several ways of sharing information between processes, like writing to the same file, but I will focus in shared memory. When several instances of a process is created, they might share regions in memory, until one of the processes needs to make a write to this region, which can create synchronisation issues. This is resolved by a method called copy on write, which means when the process tries to make a write to the shared region, it will get it's own private region in memory which it can write to.
+
+
+\subsubsection{How does this communication work?}
+The implementations of inter-process communication is dependent on how the programmer implements it. The shared memory might only be accessible to process A and B, or it might be a pool of processes sharing a part of the same memory. Any process can create a memory region that is accessible my other processes, which other processes has to utilize. Communication in memory is the fastest way for processes to communicate, which is vital for most processes. 
+
+
+
+\subsubsection{What problems can result from inter-process communication?}
+
+Different reasons to utilize inter-process communication can yield different issues. A process that has to make a decision based on what information is available in the shared memory by the processes, needs to be sure that the information at this point in time is accurate and not currently being written to. The most common problem from inter-process communication is undefined behaviour. 
+
+
+\subsection{What is a critical region? Can a process be interrupted while in a critical region? Explain.}
+ 
+ A critical region is a sequence of executions that has to be done as an atomic operation. This is only applicable when threads or processes are writing to shared memory or resources. If a process reads a value and makes a critical decision whether to write a value or not, based on the first value, it needs to know that other processes has not altered the value in the meantime, which will cause undefined behaviour. 
+ 
+ A process can be interrupted while in a critical region, but in most cases not, the scheduler might let the critical section run to completion before interrupting, or trigger the entire atomic operation to re-run. The scheduler will not interrupt a process and run another thread or process while a process is currently in a critical region.
+
+
+\subsection{Explain the difference between busy waiting (polling) versus blocking (wait/signal) in the context of a
+process trying to get access to a critical section.}
+
+Busy waiting or polling is when a process is actively polling/checking a resource for outputs. A blocking state, is stopping all operations until something else is finished. If a process is waiting for the opportunity to enter into a critical section and is continuously checking whether the conditions are right, it's in a polling state. This is very inefficient, and is wasting resources. If a thread enters a blocking state when trying to enter a critical sections, it blocks all other processes trying to reach the same resource. When a process is blocking all other processes, it knows that the resource is safe to edit, and can unblock the other processes trying to access this resource when it is done. This can be done by locking the resource, and letting other processes know when it is unlocked.
+
+\subsection{What is a race condition? Give a real-world example.}
+
+Race conditions arises from two(or more) threads/processes trying to make changes to the same variable at the same time. This is usually a problem only when the programmer is unaware that to threads are trying to write to the same variable. The outcome of this transaction is unknown and can cause undefined behaviour. Race conditions can be hard to detect and fix, because it can work most of the time. Most programming languages does not have any ways to detect race conditions built into the language. Some languages like Python and JavaScript only run on a single thread, which circumvents this problem by sacrifice potential performance, while other "safe" languages like rust, forces the programmer to deal with race conditions while writing code, by having the compiler tell you about potential race conditions. Java is considered a memory-safe language because of the garbage collector, but it has no way of dealing with race conditions.
+
+A real-world example might be two waiters both promising a customer the last piece of cake from the store, because when the customer ordered it, it was still there. When the waiters arrive at the last slice of cake, the first one takes the slice, leaving the last waiter with nothing but a broken promise. Returning to the customer with nothing, while the customer was promised cake, would be considered undefined behaviour. This might only happen very rarely and might go unnoticed, but when it happens, it can be hard to track down exactly which piece of code is causing this behaviour.
+
+\subsection{What is a spin-lock, and why and where is it used?}
+
+Spin locks is a form of busy waiting/polling. This has a thread requesting a resource continuously check when it is available. Putting a thread/process into a wait state causes overhead by letting the scheduler prioritise other processes and threads while the current thread is waiting. Having the process in a polling state might be beneficial if the wait time is relatively short(In computer time, this is VERY SHORT), while the system as a whole would benefit from having the process in a wait state. If you know that the amount of time to wait is short enough, or the process is simply the most important thing in the world for the kernel to continue operations, it would be beneficial to put it into a spin-lock.
+
+\subsection{List the issues involved with thread synchronisation in multi-core architectures. Two lock algorithms
+are MCS and RCU (read-copy-update). Describe the problems they attempt to address. What hardware mechanism lies at the heart of each?}
+
+MCS:
+MCS deals with efficient ways of obtaining busy locks. Usually this is implemented in scenarios where there are several threads polling for the same resource. Obtaining locks has to done as an atomic operations, to make sure that only one threads can hold the lock at a time. Polling with atomic operations is resource intensive, especially if several threads are doing the same. MCS deals with this by creating a queue, where each thread is only checking the next thread in line. The queue follow the FIFIO ordering, which means we only have to make a single request to be put in the queue, instad of all threads polling at the same time. Another key point is making all of the threads check a local variable, instead of the variable in shared memory. This means that the last node in the queue that is done, can simply tell the next in line node that the lock is released. The hardware implementations is called compare-and-swap and is supported on most architectures.
+
+
+RCU:
+Read-copy-update tries to solve the synchronisation issue of concurrent reading and updating shared variables or structures. This methods copies the entire structure or variable, makes the update, and replaces the pointer to this object. The idea is that a reader of the data will wither see new data or updated data, not partially updated. The writer will then wait for all reader to finish reading, meaning it is safe to update the reference to the new structure. RCU works alongside the scheduler to determine if there are any readers currently reading from the structure. The scheduler can simply park the process trying to replace the pointer untill all reads are done. 
+
+
+
+\section{Deadlocks}
+
+
+\subsection{What is the difference between resource starvation and a deadlock?}
+
+Deadlocks happen when threads hold lock for variables needed for other threads, which in turn holds a lock for variables needed by the first thread. They are now both dependent on each other releasing their lock to continue operations. 
+
+Resource starvation is lower-prioritized threads or processes never being executed because higher priority threads are continuously allowed execution. 
+
+\subsection{What are the four necessary conditions for a deadlock? Which of these are inherent properties of an
+operating system?}
+
+The four condiotions for a deadlock are:
+
+1. Mutual exclusion.
+Access to resource must be exclusive to one process or thread.
+    
+2. Partial allocation.
+A thread needs to be able to hold on to its lock while requesting other locks.
+
+3. No preemtion.
+The resource have to be locked by the process, meaning that the kernel or OS cannot take the resource away.
+ 
+4. Resource waiting.
+None of the threads or resources will stop waiting until they have access to the requested resources. If a thread yields and stop requesting a resource, a deadlock cannot occur.
+
+
+
+\subsection{How does an operating system detect a deadlock state? What information does it have available to
+make this assessment?}
+The OS has algorithm's to detect a potential deadlock. The OS needs information about resource requests and resource availability at every point in time. 
+
+If there is single instance of a resource, the OS can check is the requests between processes and resources makes a circle, if they do, it's a deadlock. 
+
+In some instances where there are several instances of a resource, the OS needs to be able to trigger a deadlock fix, if only the processes might be in a deadlock.
+
+There's also the bankers algorithms, but, yeah cool stuff.
+
+
+
+\section{Scheduling }
+
+
+\subsection{Uniprocessor scheduling}
+
+\subsubsection{When is first-in-first-out (FIFO) scheduling optimal in terms of average response time? Why?}
+
+The overhead from switching processes is minimal when using FIFO, this is because there is only one context switch needed for every scheduled task. Because tasks are only prioritized by their place in the queue, you don't need to reorganize the queue and make further optimizations. If tasks are short, FIFO is very effective because the overhead of context switching is minimal. However, tasks that takes a long time to run will monopolise the CPU slowing down everything else.
+ 
+\subsubsection{Describe how Multilevel feedback queues (MFQ) combines first-in-first-out, shortest job first, and
+round robin scheduling in an attempt at a fair and efficient scheduler. What (if any) are its
+shortcomings?}
+
+Multilevel feedback queues utilize several different FIFO queues to prioritize and schedule tasks. It prioritizes the shortest tasks first, and try to separate I/O operations to be scheduled quickly. Each process get a time quantum to complete its task on the CPU. If it does not complete the task during this time, it will be put in a lower priority queue and given another time quantum. If a process gives up control, but is not finished, it will be put back last in the same queue. If a task spends too much time in a low priority queue without finishing, it will be put into a higher priority queue. Tasks will continuously be put into a lower priority queue with an expanded time quantum until the process completes. A disadvantage of this algorithm is that it is very complex and can create some overhead, on fast CPU's this really does not make a difference, but complexity is always a negative, even if its the best solution. In addition to this, it has no way to know the importance of a task rather than I/O and the time it takes to completion.
+
+
+\subsection{Multi-core scheduling}
+
+\subsubsection{Similar to thread synchronisation, a uniprocessor scheduler running on a multi-core system can
+be very inefficient. Explain why (there are three main reasons). Use MFQ as an example.}
+
+Uni-processors only need to decide in which order work needs to be done, while multiprocessors needs to figure on which processor core the work needs to be done. If a multiprocessor system implements MFQ there are three main performance ineficiencies.
+
+A centralized lock for system resources like I/O might slow down several cores trying to access it simultaneously. 
+
+Contention for the MFQ lock. Depending on how much computation each thread
+does before blocking on I/O, the centralized lock may become a bottleneck,
+particularly as the number of processors increases.
+
+Cache Coherence Overload. Many processing cores have their own caches, where they will store information about the MFQ, this means other cores need to access the other core's cache to retrieve information about the current state of the MFQ lock. This introduces latency.
+
+
+Limited Cache Reuse. When threads are scheduled to other processors, they need to rebuilt the cache on this processors, which also introduces latency. Data might also be stored in other processor's cache to access information
+
+
+\subsubsection{Explain the concept of work-stealing.}
+
+The idea behind work-stealing schedulers is for idle threads to look through other processors work queue's and look for new work spawned by a current process. An idle process can now take the new scheduled work and run on its own processor. As long as there are idle processors, this will distribute work with no overhead, as long as the stealing processor does not have any work to do. The overhead of a context switch is done on the processor that has nothing to do. This hides the overhead of the context switch.
+
+
+
+
+\end{document}
